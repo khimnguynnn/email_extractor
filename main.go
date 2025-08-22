@@ -56,7 +56,7 @@ func main() {
 	}
 
 	hc := pkg.NewHTTPChallenge(options...)
-	
+
 	// Check if we should crawl from file or single URL
 	if f.urlFile != "" {
 		// Crawl from file containing URLs
@@ -65,7 +65,7 @@ func main() {
 			color.Danger.Println("Error reading URLs from file:", err)
 			return
 		}
-		
+
 		if f.parallel {
 			hc.CrawlURLsWithWorkerPool(urls)
 		} else {
@@ -146,7 +146,7 @@ func SetupFlags() {
 
 	flag.IntVar(&f.limitUrls, "limit-urls", 1000, "limit of urls to crawl")
 	flag.IntVar(&f.limitEmails, "limit-emails", 1000, "limit of emails to crawl")
-	flag.IntVar(&f.maxWorkers, "max-workers", 50, "maximum number of concurrent workers when crawling from file")
+	flag.IntVar(&f.maxWorkers, "max-workers", 10, "maximum number of concurrent workers when crawling from file")
 
 	flag.IntVar(&f.depth, "depth", -1, `depth of urls to crawl.
 -1 for url provided & all depths (both backward and forward)

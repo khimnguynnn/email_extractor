@@ -342,7 +342,7 @@ func (hc *HTTPChallenge) CrawlSingleURL(url string) *HTTPChallenge {
 		}
 		fmt.Println()
 	}
-	
+
 	// Add emails to memory
 	hc.Emails = append(hc.Emails, emails...)
 	hc.Emails = UniqueStrings(hc.Emails)
@@ -363,7 +363,7 @@ func (hc *HTTPChallenge) CrawlSingleURL(url string) *HTTPChallenge {
 
 func (hc *HTTPChallenge) CrawlSingleURLParallel(url string, wg *sync.WaitGroup) *HTTPChallenge {
 	defer wg.Done()
-	
+
 	// check if url doesn't end with pdf, png or jpg
 	if IsAnAsset(url) {
 		return hc
@@ -421,7 +421,86 @@ func (hc *HTTPChallenge) CrawlSingleURLParallel(url string, wg *sync.WaitGroup) 
 		}
 		fmt.Println()
 	}
-	
+
+	mu.Lock()
+	hc.Emails = append(hc.Emails, emails...)
+	hc.Emails = UniqueStrings(hc.Emails)
+	mu.Unlock()
+
+	// Save emails to file immediately if output file is specified
+	if hc.options.WriteToFile != "" && len(emails) > 0 {
+		mu.Lock()
+		err := AppendEmailsToFile(emails, hc.options.WriteToFile)
+		mu.Unlock()
+		if err != nil {
+			color.Danger.Print("File write")
+			color.Secondary.Print("....................")
+			color.Danger.Println("Error writing emails to file:", err)
+		}
+	}
+
+	return hc
+}
+
+func (hc *HTTPChallenge) CrawlSingleURLWithBrowser(url string, browser *browser.Browser) *HTTPChallenge {
+	// check if url doesn't end with pdf, png or jpg
+	if IsAnAsset(url) {
+		return hc
+	}
+
+	if hc.options.SleepMillisecond > 0 {
+		color.Secondary.Print("Sleeping")
+		color.Secondary.Print("....................")
+		color.Secondary.Println(fmt.Sprintf("%dms (sleeping before request)", hc.options.SleepMillisecond))
+		time.Sleep(time.Duration(hc.options.SleepMillisecond) * time.Millisecond)
+	}
+
+	err := browser.Head(url)
+	if err != nil {
+		return hc
+	}
+	if !strings.HasPrefix(browser.ResponseHeaders().Get("Content-Type"), "text/html") {
+		return hc
+	}
+
+	err = browser.Open(url)
+	if err != nil {
+		return hc
+	}
+
+	var mu sync.Mutex
+	mu.Lock()
+	hc.TotalURLsCrawled++
+	mu.Unlock()
+
+	color.Secondary.Print("Crawling")
+	color.Secondary.Print("....................")
+	if browser.StatusCode() >= 400 {
+		color.Danger.Print(browser.StatusCode())
+	} else {
+		color.Success.Print(browser.StatusCode())
+	}
+	color.Secondary.Println(" " + url)
+	rawBody := browser.Body()
+
+	emails := ExtractEmailsFromText(rawBody)
+	emails = FilterOutCommonExtensions(emails)
+	emails = UniqueStrings(emails)
+	if len(emails) > 0 {
+		mu.Lock()
+		hc.TotalURLsFound++
+		mu.Unlock()
+		color.Note.Print("Emails")
+		color.Secondary.Print("......................")
+		color.Note.Println(fmt.Sprintf("(%d) %s", len(emails), url))
+		for _, email := range emails {
+			color.Note.Print("Emails")
+			color.Secondary.Print("......................")
+			color.Success.Println(email)
+		}
+		fmt.Println()
+	}
+
 	mu.Lock()
 	hc.Emails = append(hc.Emails, emails...)
 	hc.Emails = UniqueStrings(hc.Emails)
@@ -460,7 +539,7 @@ func (hc *HTTPChallenge) HasURL(url string) bool {
 
 func (hc *HTTPChallenge) CrawlURLsWithWorkerPool(urls []string) {
 	if hc.options.MaxWorkers <= 0 {
-		hc.options.MaxWorkers = 50 // Default to 50 workers
+		hc.options.MaxWorkers = 10 // Reduced default to 10 workers to save memory
 	}
 
 	// Create channels for job distribution
@@ -472,12 +551,25 @@ func (hc *HTTPChallenge) CrawlURLsWithWorkerPool(urls []string) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
+			// Create separate browser instance for each worker
+			b := surf.NewBrowser()
+			b.SetUserAgent("GO kevincobain2000/email_extractor")
+			b.SetTimeout(time.Duration(hc.options.TimeoutMillisecond) * time.Millisecond)
+
+			processedCount := 0
 			for url := range urlChan {
 				if hc.HasURL(url) {
 					continue
 				}
 				hc.AddURL(url)
-				hc.CrawlSingleURL(url)
+				hc.CrawlSingleURLWithBrowser(url, b)
+
+				// Force garbage collection every 100 URLs to free memory
+				processedCount++
+				if processedCount%100 == 0 {
+					runtime.GC()
+				}
 			}
 		}()
 	}
