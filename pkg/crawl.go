@@ -24,6 +24,8 @@ type CrawlOptions struct {
 	LimitUrls          int
 	LimitEmails        int
 	WriteToFile        string
+	CrawlFromFile      bool
+	MaxWorkers         int
 }
 
 type CrawlOption func(*CrawlOptions) error
@@ -62,12 +64,15 @@ func (hc *HTTPChallenge) CrawlRecursiveParallel(url string, wg *sync.WaitGroup) 
 
 	var mu sync.Mutex
 	for _, u := range urls {
-		if len(hc.urls) >= hc.options.LimitUrls {
-			break
-		}
-		if len(hc.Emails) >= hc.options.LimitEmails {
-			hc.Emails = hc.Emails[:hc.options.LimitEmails]
-			break
+		// Only apply limits if not crawling from file
+		if !hc.options.CrawlFromFile {
+			if len(hc.urls) >= hc.options.LimitUrls {
+				break
+			}
+			if len(hc.Emails) >= hc.options.LimitEmails {
+				hc.Emails = hc.Emails[:hc.options.LimitEmails]
+				break
+			}
 		}
 		if StringInSlice(u, hc.urls) {
 			continue
@@ -95,12 +100,15 @@ func (hc *HTTPChallenge) CrawlRecursive(url string) *HTTPChallenge {
 	urls := hc.Crawl(url)
 
 	for _, u := range urls {
-		if len(hc.urls) >= hc.options.LimitUrls {
-			break
-		}
-		if len(hc.Emails) >= hc.options.LimitEmails {
-			hc.Emails = hc.Emails[:hc.options.LimitEmails]
-			break
+		// Only apply limits if not crawling from file
+		if !hc.options.CrawlFromFile {
+			if len(hc.urls) >= hc.options.LimitUrls {
+				break
+			}
+			if len(hc.Emails) >= hc.options.LimitEmails {
+				hc.Emails = hc.Emails[:hc.options.LimitEmails]
+				break
+			}
 		}
 		if StringInSlice(u, hc.urls) {
 			continue
@@ -125,14 +133,17 @@ func (hc *HTTPChallenge) CrawlRecursiveStream(url string, c echo.Context, enc *j
 		default:
 		}
 
-		if len(hc.urls) >= hc.options.LimitUrls {
-			c.Request().Context().Done()
-			return hc
-		}
-		if len(hc.Emails) >= hc.options.LimitEmails {
-			hc.Emails = hc.Emails[:hc.options.LimitEmails]
-			c.Request().Context().Done()
-			return hc
+		// Only apply limits if not crawling from file
+		if !hc.options.CrawlFromFile {
+			if len(hc.urls) >= hc.options.LimitUrls {
+				c.Request().Context().Done()
+				return hc
+			}
+			if len(hc.Emails) >= hc.options.LimitEmails {
+				hc.Emails = hc.Emails[:hc.options.LimitEmails]
+				c.Request().Context().Done()
+				return hc
+			}
 		}
 		if StringInSlice(u, hc.urls) {
 			continue
@@ -421,4 +432,38 @@ func (hc *HTTPChallenge) AddURL(url string) {
 
 func (hc *HTTPChallenge) HasURL(url string) bool {
 	return StringInSlice(url, hc.urls)
+}
+
+func (hc *HTTPChallenge) CrawlURLsWithWorkerPool(urls []string) {
+	if hc.options.MaxWorkers <= 0 {
+		hc.options.MaxWorkers = 50 // Default to 50 workers
+	}
+
+	// Create channels for job distribution
+	urlChan := make(chan string, len(urls))
+	var wg sync.WaitGroup
+
+	// Start workers
+	for i := 0; i < hc.options.MaxWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for url := range urlChan {
+				if hc.HasURL(url) {
+					continue
+				}
+				hc.AddURL(url)
+				hc.CrawlSingleURL(url)
+			}
+		}()
+	}
+
+	// Send URLs to workers
+	for _, url := range urls {
+		urlChan <- url
+	}
+	close(urlChan)
+
+	// Wait for all workers to complete
+	wg.Wait()
 }

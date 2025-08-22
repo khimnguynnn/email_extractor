@@ -22,6 +22,7 @@ type Flags struct {
 	writeToFile   string
 	limitUrls     int
 	limitEmails   int
+	maxWorkers    int
 	depth         int
 	timeout       int64
 	sleep         int64
@@ -48,6 +49,8 @@ func main() {
 			opt.URL = f.url
 			opt.Depth = f.depth
 			opt.IgnoreQueries = f.ignoreQueries
+			opt.CrawlFromFile = f.urlFile != ""
+			opt.MaxWorkers = f.maxWorkers
 			return nil
 		},
 	}
@@ -64,30 +67,9 @@ func main() {
 		}
 		
 		if f.parallel {
-			var wgC sync.WaitGroup
-			for _, url := range urls {
-				if hc.GetURLsCount() >= f.limitUrls {
-					break
-				}
-				if hc.GetEmailsCount() >= f.limitEmails {
-					break
-				}
-				if hc.HasURL(url) {
-					continue
-				}
-				hc.AddURL(url)
-				wgC.Add(1)
-				go hc.CrawlSingleURLParallel(url, &wgC)
-			}
-			wgC.Wait()
+			hc.CrawlURLsWithWorkerPool(urls)
 		} else {
 			for _, url := range urls {
-				if hc.GetURLsCount() >= f.limitUrls {
-					break
-				}
-				if hc.GetEmailsCount() >= f.limitEmails {
-					break
-				}
 				if hc.HasURL(url) {
 					continue
 				}
@@ -96,7 +78,7 @@ func main() {
 			}
 		}
 	} else {
-		// Original behavior - crawl recursively from single URL
+		// Original behavior - crawl recursively from single URL with limits
 		if f.parallel {
 			var wgC sync.WaitGroup
 			wgC.Add(1)
@@ -167,6 +149,7 @@ func SetupFlags() {
 
 	flag.IntVar(&f.limitUrls, "limit-urls", 1000, "limit of urls to crawl")
 	flag.IntVar(&f.limitEmails, "limit-emails", 1000, "limit of emails to crawl")
+	flag.IntVar(&f.maxWorkers, "max-workers", 50, "maximum number of concurrent workers when crawling from file")
 
 	flag.IntVar(&f.depth, "depth", -1, `depth of urls to crawl.
 -1 for url provided & all depths (both backward and forward)
