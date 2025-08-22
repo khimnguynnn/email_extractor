@@ -1,0 +1,4 @@
+https://example.com
+https://httpbin.org
+https://jsonplaceholder.typicode.com
+https://httpstat.us
