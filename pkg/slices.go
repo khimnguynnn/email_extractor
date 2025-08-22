@@ -81,3 +81,20 @@ func WriteToFile(emails []string, path string) error {
 
 	return nil
 }
+
+func AppendEmailsToFile(emails []string, path string) error {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, email := range emails {
+		_, err := file.WriteString(email + "\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

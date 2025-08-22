@@ -123,16 +123,13 @@ func main() {
 	}
 
 	if f.writeToFile != "" {
-		err := pkg.WriteToFile(hc.Emails, f.writeToFile)
-		if err != nil {
-			color.Danger.Print("Output file")
-			color.Secondary.Print("・・・・・・・・")
-			color.Danger.Println("Error writing emails to file", f.writeToFile)
-		} else {
-			color.Warn.Print("Output file")
-			color.Secondary.Print(".................")
-			color.Note.Println(f.writeToFile)
-		}
+		// Emails are already saved real-time, just show the file path
+		color.Warn.Print("Output file")
+		color.Secondary.Print(".................")
+		color.Note.Println(f.writeToFile)
+		color.Secondary.Print("Note")
+		color.Secondary.Print("....................")
+		color.Success.Println("Emails saved real-time during crawling")
 	}
 	endTime := time.Now()
 	color.Warn.Print("Time taken")

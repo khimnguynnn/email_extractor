@@ -343,8 +343,20 @@ func (hc *HTTPChallenge) CrawlSingleURL(url string) *HTTPChallenge {
 		fmt.Println()
 	}
 	
+	// Add emails to memory
 	hc.Emails = append(hc.Emails, emails...)
 	hc.Emails = UniqueStrings(hc.Emails)
+
+	// Save emails to file immediately if output file is specified
+	if hc.options.WriteToFile != "" && len(emails) > 0 {
+		// Append new emails to file
+		err := AppendEmailsToFile(emails, hc.options.WriteToFile)
+		if err != nil {
+			color.Danger.Print("File write")
+			color.Secondary.Print("....................")
+			color.Danger.Println("Error writing emails to file:", err)
+		}
+	}
 
 	return hc
 }
@@ -414,6 +426,18 @@ func (hc *HTTPChallenge) CrawlSingleURLParallel(url string, wg *sync.WaitGroup) 
 	hc.Emails = append(hc.Emails, emails...)
 	hc.Emails = UniqueStrings(hc.Emails)
 	mu.Unlock()
+
+	// Save emails to file immediately if output file is specified
+	if hc.options.WriteToFile != "" && len(emails) > 0 {
+		mu.Lock()
+		err := AppendEmailsToFile(emails, hc.options.WriteToFile)
+		mu.Unlock()
+		if err != nil {
+			color.Danger.Print("File write")
+			color.Secondary.Print("....................")
+			color.Danger.Println("Error writing emails to file:", err)
+		}
+	}
 
 	return hc
 }

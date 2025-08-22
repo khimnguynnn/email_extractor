@@ -56,8 +56,29 @@ email_extractor -f urls.txt -timeout=5000 -sleep=1000 -max-workers=10
 1. **Crawl toàn bộ URLs trong file**: Không có giới hạn về số lượng URLs
 2. **Không có giới hạn emails**: Trích xuất tất cả emails tìm được
 3. **Worker pool**: Sử dụng worker pool để kiểm soát số goroutines
-4. **Kiểm tra trùng lặp**: Tự động bỏ qua URLs trùng lặp
-5. **Tương thích ngược**: Vẫn giữ nguyên tính năng crawl từ URL duy nhất với giới hạn
+4. **Lưu emails real-time**: Emails được lưu vào file ngay khi tìm thấy
+5. **Kiểm tra trùng lặp**: Tự động bỏ qua URLs trùng lặp
+6. **Tương thích ngược**: Vẫn giữ nguyên tính năng crawl từ URL duy nhất với giới hạn
+
+## Real-time Email Saving
+
+### **Tính năng mới**: Emails được lưu real-time
+- Emails được lưu vào file **ngay khi tìm thấy**
+- Không cần chờ hoàn thành tất cả URLs
+- An toàn khi dừng chương trình bằng Ctrl+C
+- Không bị mất dữ liệu đã crawl
+
+### **Cách hoạt động**:
+1. Khi crawl một URL và tìm thấy emails
+2. Emails được lưu ngay lập tức vào file output
+3. Tiếp tục crawl URL tiếp theo
+4. Nếu dừng chương trình, emails đã lưu vẫn còn trong file
+
+### **Lợi ích**:
+- **An toàn**: Không mất dữ liệu khi dừng giữa chừng
+- **Theo dõi tiến trình**: Có thể xem file output trong khi crawl
+- **Tiết kiệm thời gian**: Không cần chờ hoàn thành mới có kết quả
+- **Ổn định**: Tránh mất dữ liệu do lỗi hoặc crash
 
 ## Worker Pool System
 
