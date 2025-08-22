@@ -406,3 +406,19 @@ func (hc *HTTPChallenge) CrawlSingleURLParallel(url string, wg *sync.WaitGroup) 
 
 	return hc
 }
+
+func (hc *HTTPChallenge) GetURLsCount() int {
+	return len(hc.urls)
+}
+
+func (hc *HTTPChallenge) GetEmailsCount() int {
+	return len(hc.Emails)
+}
+
+func (hc *HTTPChallenge) AddURL(url string) {
+	hc.urls = append(hc.urls, url)
+}
+
+func (hc *HTTPChallenge) HasURL(url string) bool {
+	return StringInSlice(url, hc.urls)
+}

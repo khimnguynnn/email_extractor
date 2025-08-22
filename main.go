@@ -66,24 +66,32 @@ func main() {
 		if f.parallel {
 			var wgC sync.WaitGroup
 			for _, url := range urls {
-				if len(hc.urls) >= f.limitUrls {
+				if hc.GetURLsCount() >= f.limitUrls {
 					break
 				}
-				if len(hc.Emails) >= f.limitEmails {
+				if hc.GetEmailsCount() >= f.limitEmails {
 					break
 				}
+				if hc.HasURL(url) {
+					continue
+				}
+				hc.AddURL(url)
 				wgC.Add(1)
 				go hc.CrawlSingleURLParallel(url, &wgC)
 			}
 			wgC.Wait()
 		} else {
 			for _, url := range urls {
-				if len(hc.urls) >= f.limitUrls {
+				if hc.GetURLsCount() >= f.limitUrls {
 					break
 				}
-				if len(hc.Emails) >= f.limitEmails {
+				if hc.GetEmailsCount() >= f.limitEmails {
 					break
 				}
+				if hc.HasURL(url) {
+					continue
+				}
+				hc.AddURL(url)
 				hc.CrawlSingleURL(url)
 			}
 		}
