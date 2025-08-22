@@ -457,14 +457,20 @@ func (hc *HTTPChallenge) CrawlSingleURLWithBrowser(url string, browser *browser.
 
 	err := browser.Head(url)
 	if err != nil {
+		// Force garbage collection after failed request
+		runtime.GC()
 		return hc
 	}
 	if !strings.HasPrefix(browser.ResponseHeaders().Get("Content-Type"), "text/html") {
+		// Force garbage collection for non-HTML content
+		runtime.GC()
 		return hc
 	}
 
 	err = browser.Open(url)
 	if err != nil {
+		// Force garbage collection after failed request
+		runtime.GC()
 		return hc
 	}
 
@@ -481,11 +487,14 @@ func (hc *HTTPChallenge) CrawlSingleURLWithBrowser(url string, browser *browser.
 		color.Success.Print(browser.StatusCode())
 	}
 	color.Secondary.Println(" " + url)
+
+	// Get body content before clearing browser
 	rawBody := browser.Body()
 
 	emails := ExtractEmailsFromText(rawBody)
 	emails = FilterOutCommonExtensions(emails)
 	emails = UniqueStrings(emails)
+
 	if len(emails) > 0 {
 		mu.Lock()
 		hc.TotalURLsFound++
@@ -517,6 +526,13 @@ func (hc *HTTPChallenge) CrawlSingleURLWithBrowser(url string, browser *browser.
 			color.Danger.Println("Error writing emails to file:", err)
 		}
 	}
+
+	// CRITICAL: Force garbage collection to free all memory after processing
+	runtime.GC()
+
+	// Additional memory cleanup
+	rawBody = ""
+	emails = nil
 
 	return hc
 }
@@ -552,22 +568,26 @@ func (hc *HTTPChallenge) CrawlURLsWithWorkerPool(urls []string) {
 		go func() {
 			defer wg.Done()
 
-			// Create separate browser instance for each worker
-			b := surf.NewBrowser()
-			b.SetUserAgent("GO kevincobain2000/email_extractor")
-			b.SetTimeout(time.Duration(hc.options.TimeoutMillisecond) * time.Millisecond)
-
 			processedCount := 0
 			for url := range urlChan {
 				if hc.HasURL(url) {
 					continue
 				}
 				hc.AddURL(url)
+
+				// Create NEW browser instance for EACH request to prevent memory accumulation
+				b := surf.NewBrowser()
+				b.SetUserAgent("GO kevincobain2000/email_extractor")
+				b.SetTimeout(time.Duration(hc.options.TimeoutMillisecond) * time.Millisecond)
+
 				hc.CrawlSingleURLWithBrowser(url, b)
 
-				// Force garbage collection every 100 URLs to free memory
+				// Browser will be garbage collected after each request
+				b = nil
+
+				// Force garbage collection every 50 URLs to free memory more frequently
 				processedCount++
-				if processedCount%100 == 0 {
+				if processedCount%50 == 0 {
 					runtime.GC()
 				}
 			}
