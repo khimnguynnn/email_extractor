@@ -102,8 +102,9 @@ email_extractor -f urls.txt -timeout=5000 -sleep=1000 -max-workers=5
 - **100+ workers**: Chỉ khi thực sự cần thiết và server rất mạnh
 
 ### **Memory Optimization**:
-- **Garbage Collection**: Tự động GC mỗi 100 URLs
-- **Browser Instances**: Mỗi worker có browser riêng
+- **New Browser Per Request**: Tạo browser mới cho mỗi request để tránh memory leak
+- **Garbage Collection**: Tự động GC mỗi 50 URLs và sau mỗi request
+- **Memory Cleanup**: Xóa variables sau mỗi request
 - **Reduced Default**: Mặc định 10 workers thay vì 50
 - **Memory Monitoring**: Theo dõi memory usage
 
@@ -155,4 +156,4 @@ email_extractor -f urls.txt -out=found_emails.txt -max-workers=5
 - Sử dụng `-sleep=1000` hoặc cao hơn để tránh bị block
 - Sử dụng `-timeout=30000` hoặc cao hơn cho các trang web chậm
 - Theo dõi tiến trình và có thể dừng bằng Ctrl+C nếu cần
-- **Memory monitoring**: Theo dõi memory usage khi crawl file lớn
+- **Memory optimization**: Browser mới cho mỗi request, GC thường xuyên
